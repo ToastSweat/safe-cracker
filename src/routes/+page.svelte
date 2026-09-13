@@ -1,6 +1,10 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
-	import { authenticateDiscord } from '$lib/discord';
+	import {
+		authenticateDiscord,
+		setCompletedPresence,
+		setPlayingPresence
+	} from '$lib/discord';
 
 	let discordUserId = $state('');
 	let discordDisplayName = $state('');
@@ -142,7 +146,7 @@
 		}
 	}
 
-	function completeRun(data: {
+	async function completeRun(data: {
 		attempts: number;
 		elapsedMs: number;
 	}) {
@@ -159,7 +163,16 @@
 
 		feedback = 'SAFE CRACKED';
 
-		void loadStats();
+		await loadStats();
+
+		if (safeNumber !== null) {
+			await setCompletedPresence(
+				safeNumber,
+				data.attempts,
+				data.elapsedMs,
+				currentStreak
+			);
+		}
 	}
 
 	async function sendGuess(value: number) {
@@ -189,7 +202,7 @@
 			data.result === 'cracked' ||
 			data.result === 'completed'
 		) {
-			completeRun(data);
+			await completeRun(data);
 			return;
 		}
 
