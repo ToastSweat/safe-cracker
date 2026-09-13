@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
 
-	// LOCAL PROTOTYPE ONLY.
-	// We'll move this server-side once the game feels right.
-	let combination = $state(5832);
+	let safeNumber = $state<number | null>(null);
+    let dailyDate = $state('');
 
 	let guess = $state('');
     let attempts = $state(0);
@@ -47,38 +46,64 @@
         }, 900);
 	}
 
-	function submitGuess() {
-		if (cracked) return;
-		if (!guess) return;
+    async function submitGuess() {
+        if (cracked) return;
+        if (!guess) return;
 
-		const value = Number(guess);
+        const value = Number(guess);
 
-		if (!Number.isInteger(value) || value < 0 || value > 9999) {
-			showFeedback('INVALID');
-			guess = '';
-			return;
-		}
+        if (
+            !Number.isInteger(value) ||
+            value < 0 ||
+            value > 9999
+        ) {
+            showFeedback('INVALID');
+            guess = '';
+            return;
+        }
 
-		startTimer();
-		attempts++;
+        startTimer();
+        attempts++;
 
-		if (value === combination) {
-			cracked = true;
+        // Clear immediately so the game stays fast and responsive.
+        guess = '';
 
-			if (startedAt !== null) {
-				elapsed = Date.now() - startedAt;
-			}
+        const response = await fetch('/api/guess', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                guess: value
+            })
+        });
 
-			stopTimer();
-			feedback = 'SAFE CRACKED';
-		} else if (value < combination) {
-			showFeedback('HIGHER ↑');
-		} else {
-			showFeedback('LOWER ↓');
-		}
+        if (!response.ok) {
+            showFeedback('ERROR');
+            return;
+        }
 
-		guess = '';
-	}
+        const data = await response.json();
+
+        if (data.result === 'cracked') {
+            cracked = true;
+
+            if (startedAt !== null) {
+                elapsed = Date.now() - startedAt;
+            }
+
+            stopTimer();
+            feedback = 'SAFE CRACKED';
+            return;
+        }
+
+        if (data.result === 'higher') {
+            showFeedback('HIGHER ↑');
+            return;
+        }
+
+        showFeedback('LOWER ↓');
+    }
 
 	function pressDigit(digit: string) {
 		if (cracked) return;
@@ -104,29 +129,6 @@
 			.padStart(2, '0')}.${hundredths.toString().padStart(2, '0')}`;
 	}
 
-    function randomCombination() {
-        return Math.floor(Math.random() * 10000);
-    }
-
-    function newSafe() {
-        stopTimer();
-
-        if (feedbackTimer) {
-            clearTimeout(feedbackTimer);
-            feedbackTimer = null;
-        }
-
-        combination = randomCombination();
-        guess = '';
-        attempts = 0;
-        feedback = '';
-        cracked = false;
-        startedAt = null;
-        elapsed = 0;
-
-        console.log(`DEV SAFE: ${combination.toString().padStart(4, '0')}`);
-    }
-
     function handleKeydown(event: KeyboardEvent) {
         if (cracked) return;
 
@@ -148,8 +150,18 @@
         }
     }
 
-    onMount(() => {
-        newSafe();
+    onMount(async () => {
+        const response = await fetch('/api/daily');
+
+        if (!response.ok) {
+            console.error('Unable to load daily safe.');
+            return;
+        }
+
+        const daily = await response.json();
+
+        safeNumber = daily.safeNumber;
+        dailyDate = daily.date;
     });
 
 	onDestroy(() => {
@@ -168,11 +180,18 @@
 		content="Crack the daily safe using as few guesses as possible."
 	/>
 </svelte:head>
+<svelte:window onkeydown={handleKeydown} />
 
 <main>
 	<section class="game">
 		<div class="heading">
-			<p class="eyebrow">DAILY SAFE</p>
+			<p class="eyebrow">
+                {#if safeNumber !== null}
+                    DAILY SAFE #{safeNumber.toString().padStart(3, '0')}
+                {:else}
+                    DAILY SAFE
+                {/if}
+            </p>
 			<h1>SAFE CRACKER</h1>
 			<p class="range">Combination range: 0000–9999</p>
 		</div>
@@ -180,8 +199,8 @@
 		<div class:cracked class="safe-display">
 			<div class="screen">
 				{#if cracked}
-					{combination.toString().padStart(4, '0')}
-				{:else}
+                    OPEN
+                {:else}
 					{guess.padEnd(4, '_')}
 				{/if}
 			</div>
@@ -247,10 +266,6 @@
 				<span>{formatTime(elapsed)}</span>
 			</div>
 		{/if}
-
-        <button class="new-safe" onclick={newSafe}>
-            NEW SAFE
-        </button>
 	</section>
 </main>
 
@@ -438,20 +453,4 @@
 		display: block;
 		margin-top: 0.25rem;
 	}
-
-    .new-safe {
-        width: 100%;
-        margin-top: 1rem;
-        padding: 0.9rem;
-        background: transparent;
-        color: #777;
-        border: 1px dashed #444;
-        cursor: pointer;
-        letter-spacing: 0.12em;
-    }
-
-    .new-safe:hover {
-        color: #bbb;
-        border-color: #666;
-    }
 </style>
