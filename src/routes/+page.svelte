@@ -1,5 +1,10 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
+	import { authenticateDiscord } from '$lib/discord';
+
+	let discordUserId = $state('');
+	let discordDisplayName = $state('');
+	let discordAuthError = $state('');
 
 	let safeNumber = $state<number | null>(null);
     let dailyDate = $state('');
@@ -150,19 +155,49 @@
         }
     }
 
-    onMount(async () => {
-        const response = await fetch('/api/daily');
+	async function setupDiscord() {
+		try {
+			const user = await authenticateDiscord();
 
-        if (!response.ok) {
-            console.error('Unable to load daily safe.');
-            return;
-        }
+			discordUserId = user.id;
+			discordDisplayName = user.displayName;
 
-        const daily = await response.json();
+			console.log(
+				`Discord authenticated: ${user.displayName} (${user.id})`
+			);
+		} catch (error) {
+			console.error('Discord authentication failed:', error);
 
-        safeNumber = daily.safeNumber;
-        dailyDate = daily.date;
-    });
+			discordAuthError =
+				error instanceof Error
+					? error.message
+					: 'Discord authentication failed.';
+		}
+	}
+
+	async function loadDaily() {
+		const response = await fetch('/api/daily');
+
+		if (!response.ok) {
+			console.error('Unable to load daily safe.');
+			return;
+		}
+
+		const daily = await response.json();
+
+		safeNumber = daily.safeNumber;
+		dailyDate = daily.date;
+	}
+
+    onMount(() => {
+		void loadDaily();
+
+		// Discord Activities run inside an iframe.
+		// Keep the normal web version usable during development.
+		if (window.self !== window.top) {
+			void setupDiscord();
+		}
+	});
 
 	onDestroy(() => {
 		stopTimer();
@@ -194,6 +229,13 @@
             </p>
 			<h1>SAFE CRACKER</h1>
 			<p class="range">Combination range: 0000–9999</p>
+		
+			
+			{#if discordDisplayName}
+				<p class="range">Authenticated as {discordDisplayName}</p>
+			{:else if discordAuthError}
+				<p class="range">Discord auth failed</p>
+			{/if}
 		</div>
 
 		<div class:cracked class="safe-display">
