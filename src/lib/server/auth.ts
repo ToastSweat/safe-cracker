@@ -53,31 +53,32 @@ export function createSession(discordUserId: string) {
 	const token = randomBytes(32).toString('base64url');
 	const tokenHash = hashSessionToken(token);
 
-	// Clean up old sessions while we're here.
-	db.prepare(`
-		DELETE FROM sessions
-		WHERE expires_at <= ?
-	`).run(now);
+	// Clean up expired sessions.
+    db.prepare(`
+        DELETE FROM sessions
+        WHERE expires_at <= ?
+    `).run(now);
 
-	db.prepare(`
-		INSERT INTO sessions (
-			token_hash,
-			discord_user_id,
-			created_at,
-			expires_at
-		)
-		VALUES (?, ?, ?, ?)
-	`).run(
-		tokenHash,
-		discordUserId,
-		now,
-		expiresAt
-	);
+    // Only keep the newest Safe Cracker session for this player.
+    db.prepare(`
+        DELETE FROM sessions
+        WHERE discord_user_id = ?
+    `).run(discordUserId);
 
-	return {
-		token,
-		expiresAt
-	};
+    db.prepare(`
+        INSERT INTO sessions (
+            token_hash,
+            discord_user_id,
+            created_at,
+            expires_at
+        )
+        VALUES (?, ?, ?, ?)
+    `).run(
+        tokenHash,
+        discordUserId,
+        now,
+        expiresAt
+    );
 }
 
 export function getSessionPlayer(sessionToken: string | undefined) {

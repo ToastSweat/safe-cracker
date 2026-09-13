@@ -23,6 +23,45 @@
 	let guessQueue: Promise<void> = Promise.resolve();
 	
 	let serverSessionVerified = $state(false);
+	
+	type LeaderboardEntry = {
+		rank: number;
+		discordUserId: string;
+		displayName: string;
+		avatar: string | null;
+		attempts: number;
+		elapsedMs: number;
+	};
+
+	let initializing = $state(true);
+	let embeddedInDiscord = $state(false);
+
+	let leaderboard = $state<LeaderboardEntry[]>([]);
+	let currentPlayerRank = $state<LeaderboardEntry | null>(null);
+
+	let currentStreak = $state(0);
+	let bestStreak = $state(0);
+	let totalCompleted = $state(0);
+	let totalPlayersToday = $state(0);
+	
+	async function loadStats() {
+		const response = await fetch('/api/stats');
+
+		if (!response.ok) {
+			console.error('Unable to load player stats.');
+			return;
+		}
+
+		const stats = await response.json();
+
+		leaderboard = stats.leaderboard;
+		currentPlayerRank = stats.currentPlayer;
+
+		currentStreak = stats.streak.current;
+		bestStreak = stats.streak.best;
+		totalCompleted = stats.streak.totalCompleted;
+		totalPlayersToday = stats.totalPlayers;
+	}
 
 	function startTimer() {
 		if (timer) return;
@@ -78,6 +117,9 @@
 			cracked = true;
 			stopTimer();
 			feedback = 'SAFE CRACKED';
+
+			await loadStats();
+
 			return;
 		}
 
@@ -110,7 +152,14 @@
 
 		stopTimer();
 
+		if (feedbackTimer) {
+			clearTimeout(feedbackTimer);
+			feedbackTimer = null;
+		}
+
 		feedback = 'SAFE CRACKED';
+
+		void loadStats();
 	}
 
 	async function sendGuess(value: number) {
@@ -273,7 +322,7 @@
 			serverSessionVerified = true;
 
 			await loadRun();
-			
+
 			console.log(
 				`Discord authenticated: ${user.displayName} (${user.id})`
 			);
@@ -301,14 +350,25 @@
 		dailyDate = daily.date;
 	}
 
-    onMount(() => {
-		void loadDaily();
+    async function initializeApp() {
+		try {
+			await loadDaily();
 
-		// Discord Activities run inside an iframe.
-		// Keep the normal web version usable during development.
-		if (window.self !== window.top) {
-			void setupDiscord();
+			embeddedInDiscord =
+				window.self !== window.top;
+
+			if (!embeddedInDiscord) {
+				return;
+			}
+
+			await setupDiscord();
+		} finally {
+			initializing = false;
 		}
+	}
+
+	onMount(() => {
+		void initializeApp();
 	});
 
 	onDestroy(() => {
@@ -330,7 +390,26 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <main>
-	<section class="game">
+	{#if initializing}
+		<section class="loading-screen">
+			<p class="eyebrow">SAFE CRACKER</p>
+			<h1>CONNECTING...</h1>
+			<p class="range">
+				Syncing today's safe.
+			</p>
+		</section>
+
+	{:else if !embeddedInDiscord}
+		<section class="loading-screen">
+			<p class="eyebrow">SAFE CRACKER</p>
+			<h1>DISCORD ACTIVITY</h1>
+			<p class="range">
+				Launch Safe Cracker from Discord to play.
+			</p>
+		</section>
+
+	{:else}
+		<section class="game">
 		<div class="heading">
 			<p class="eyebrow">
                 {#if safeNumber !== null}
@@ -421,8 +500,104 @@
 				<strong>{attempts} guesses</strong>
 				<span>{formatTime(elapsed)}</span>
 			</div>
+
+			<div class="postgame-stats">
+				<div class="streak-grid">
+					<div>
+						<span>CURRENT STREAK</span>
+						<strong>{currentStreak}</strong>
+					</div>
+
+					<div>
+						<span>BEST STREAK</span>
+						<strong>{bestStreak}</strong>
+					</div>
+
+					<div>
+						<span>SAFES CRACKED</span>
+						<strong>{totalCompleted}</strong>
+					</div>
+				</div>
+
+				<div class="leaderboard">
+					<div class="leaderboard-heading">
+						<strong>TODAY'S LEADERBOARD</strong>
+						<span>
+							{totalPlayersToday}
+							{totalPlayersToday === 1
+								? ' CRACKER'
+								: ' CRACKERS'}
+						</span>
+					</div>
+
+					{#each leaderboard as entry}
+						<div
+							class="leaderboard-row"
+							class:you={
+								entry.discordUserId === discordUserId
+							}
+						>
+							<span class="rank">
+								#{entry.rank}
+							</span>
+
+							<span class="player">
+								{entry.displayName}
+
+								{#if entry.discordUserId === discordUserId}
+									<small>YOU</small>
+								{/if}
+							</span>
+
+							<span>
+								{entry.attempts} guesses
+							</span>
+
+							<span class="leaderboard-time">
+								{formatTime(entry.elapsedMs)}
+							</span>
+						</div>
+					{/each}
+
+					{#if
+						currentPlayerRank &&
+						!leaderboard.some(
+							(entry) =>
+								entry.discordUserId ===
+								currentPlayerRank?.discordUserId
+						)
+					}
+						<div class="leaderboard-divider">
+							•••
+						</div>
+
+						<div class="leaderboard-row you">
+							<span class="rank">
+								#{currentPlayerRank.rank}
+							</span>
+
+							<span class="player">
+								{currentPlayerRank.displayName}
+								<small>YOU</small>
+							</span>
+
+							<span>
+								{currentPlayerRank.attempts}
+								guesses
+							</span>
+
+							<span class="leaderboard-time">
+								{formatTime(
+									currentPlayerRank.elapsedMs
+								)}
+							</span>
+						</div>
+					{/if}
+				</div>
+			</div>
 		{/if}
-	</section>
+		</section>
+	{/if}
 </main>
 
 <style>
@@ -608,5 +783,112 @@
 	.victory span {
 		display: block;
 		margin-top: 0.25rem;
+	}
+
+	.loading-screen {
+		width: min(100%, 420px);
+		text-align: center;
+	}
+
+	.postgame-stats {
+		margin-top: 1rem;
+	}
+
+	.streak-grid {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 0.5rem;
+	}
+
+	.streak-grid div {
+		background: #191919;
+		border: 1px solid #333;
+		padding: 0.75rem 0.4rem;
+		text-align: center;
+	}
+
+	.streak-grid span {
+		display: block;
+		color: #777;
+		font-size: 0.6rem;
+		letter-spacing: 0.12em;
+		margin-bottom: 0.3rem;
+	}
+
+	.streak-grid strong {
+		font-family: 'Courier New', monospace;
+		font-size: 1.2rem;
+	}
+
+	.leaderboard {
+		margin-top: 1rem;
+		border: 1px solid #333;
+		background: #151515;
+	}
+
+	.leaderboard-heading {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 0.8rem;
+		border-bottom: 1px solid #333;
+	}
+
+	.leaderboard-heading strong {
+		font-size: 0.75rem;
+		letter-spacing: 0.12em;
+	}
+
+	.leaderboard-heading span {
+		color: #777;
+		font-size: 0.65rem;
+	}
+
+	.leaderboard-row {
+		display: grid;
+		grid-template-columns: 44px 1fr auto auto;
+		gap: 0.65rem;
+		align-items: center;
+		padding: 0.7rem 0.8rem;
+		border-bottom: 1px solid #252525;
+		font-size: 0.75rem;
+	}
+
+	.leaderboard-row:last-child {
+		border-bottom: 0;
+	}
+
+	.leaderboard-row.you {
+		background: #202020;
+	}
+
+	.rank {
+		font-family: 'Courier New', monospace;
+		font-weight: bold;
+	}
+
+	.player {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.player small {
+		margin-left: 0.35rem;
+		color: #888;
+		font-size: 0.55rem;
+		letter-spacing: 0.08em;
+	}
+
+	.leaderboard-time {
+		font-family: 'Courier New', monospace;
+	}
+
+	.leaderboard-divider {
+		text-align: center;
+		color: #555;
+		padding: 0.3rem;
+		border-bottom: 1px solid #252525;
 	}
 </style>
