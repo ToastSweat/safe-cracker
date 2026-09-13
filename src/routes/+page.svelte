@@ -20,12 +20,16 @@
 	let timer: ReturnType<typeof setInterval> | null = null;
 	let feedbackTimer: ReturnType<typeof setTimeout> | null = null;
 	
+	let guessQueue: Promise<void> = Promise.resolve();
+	
 	let serverSessionVerified = $state(false);
 
 	function startTimer() {
-		if (startedAt !== null) return;
+		if (timer) return;
 
-		startedAt = Date.now();
+		if (startedAt === null) {
+			startedAt = Date.now();
+		}
 
 		timer = setInterval(() => {
 			if (startedAt !== null) {
@@ -53,64 +57,151 @@
         }, 900);
 	}
 
-    async function submitGuess() {
-        if (cracked) return;
-        if (!guess) return;
+	async function loadRun() {
+		const response = await fetch('/api/run');
 
-        const value = Number(guess);
+		if (response.status === 401) {
+			return;
+		}
 
-        if (
-            !Number.isInteger(value) ||
-            value < 0 ||
-            value > 9999
-        ) {
-            showFeedback('INVALID');
-            guess = '';
-            return;
-        }
+		if (!response.ok) {
+			console.error('Unable to load daily run.');
+			return;
+		}
 
-        startTimer();
-        attempts++;
+		const run = await response.json();
 
-        // Clear immediately so the game stays fast and responsive.
-        guess = '';
+		attempts = run.attempts;
+		elapsed = run.elapsedMs;
 
-        const response = await fetch('/api/guess', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                guess: value
-            })
-        });
+		if (run.completed) {
+			cracked = true;
+			stopTimer();
+			feedback = 'SAFE CRACKED';
+			return;
+		}
 
-        if (!response.ok) {
-            showFeedback('ERROR');
-            return;
-        }
+		if (run.started) {
+			startedAt = Date.now() - run.elapsedMs;
+			startTimer();
+		}
+	}
 
-        const data = await response.json();
+	function syncRunFromServer(data: {
+		attempts: number;
+		elapsedMs: number;
+	}) {
+		attempts = data.attempts;
+		elapsed = data.elapsedMs;
 
-        if (data.result === 'cracked') {
-            cracked = true;
+		if (!cracked) {
+			startedAt = Date.now() - data.elapsedMs;
+			startTimer();
+		}
+	}
 
-            if (startedAt !== null) {
-                elapsed = Date.now() - startedAt;
-            }
+	function completeRun(data: {
+		attempts: number;
+		elapsedMs: number;
+	}) {
+		attempts = data.attempts;
+		elapsed = data.elapsedMs;
+		cracked = true;
 
-            stopTimer();
-            feedback = 'SAFE CRACKED';
-            return;
-        }
+		stopTimer();
 
-        if (data.result === 'higher') {
-            showFeedback('HIGHER ↑');
-            return;
-        }
+		feedback = 'SAFE CRACKED';
+	}
 
-        showFeedback('LOWER ↓');
-    }
+	async function sendGuess(value: number) {
+		if (cracked) return;
+
+		const response = await fetch('/api/guess', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				guess: value
+			})
+		});
+
+		if (!response.ok) {
+			if (response.status === 401) {
+				throw new Error('Safe Cracker session expired.');
+			}
+
+			throw new Error('Unable to submit guess.');
+		}
+
+		const data = await response.json();
+
+		if (
+			data.result === 'cracked' ||
+			data.result === 'completed'
+		) {
+			completeRun(data);
+			return;
+		}
+
+		syncRunFromServer(data);
+
+		if (data.result === 'higher') {
+			showFeedback('HIGHER ↑');
+			return;
+		}
+
+		if (data.result === 'lower') {
+			showFeedback('LOWER ↓');
+		}
+	}
+
+	function queueGuess(value: number) {
+		guessQueue = guessQueue
+			.then(async () => {
+				if (cracked) return;
+
+				await sendGuess(value);
+			})
+			.catch((error) => {
+				console.error('Guess failed:', error);
+
+				showFeedback('ERROR');
+			});
+	}
+
+    function submitGuess() {
+		if (cracked) return;
+		if (!guess) return;
+		if (!serverSessionVerified) return;
+
+		const value = Number(guess);
+
+		if (
+			!Number.isInteger(value) ||
+			value < 0 ||
+			value > 9999
+		) {
+			showFeedback('INVALID');
+			guess = '';
+			return;
+		}
+
+		/*
+		* Start the visual timer immediately.
+		* The server will reconcile the authoritative
+		* elapsed time when the response returns.
+		*/
+		startTimer();
+
+		/*
+		* Clear immediately.
+		* The player can already enter the next guess.
+		*/
+		guess = '';
+
+		queueGuess(value);
+	}
 
 	function pressDigit(digit: string) {
 		if (cracked) return;
@@ -181,6 +272,8 @@
 
 			serverSessionVerified = true;
 
+			await loadRun();
+			
 			console.log(
 				`Discord authenticated: ${user.displayName} (${user.id})`
 			);
