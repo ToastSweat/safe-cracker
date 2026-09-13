@@ -19,6 +19,8 @@
 
 	let timer: ReturnType<typeof setInterval> | null = null;
 	let feedbackTimer: ReturnType<typeof setTimeout> | null = null;
+	
+	let serverSessionVerified = $state(false);
 
 	function startTimer() {
 		if (startedAt !== null) return;
@@ -162,6 +164,23 @@
 			discordUserId = user.id;
 			discordDisplayName = user.displayName;
 
+			const sessionResponse = await fetch('/api/me');
+
+			if (!sessionResponse.ok) {
+				throw new Error('Safe Cracker session was not created.');
+			}
+
+			const sessionData = await sessionResponse.json();
+
+			if (
+				!sessionData.authenticated ||
+				sessionData.player.id !== user.id
+			) {
+				throw new Error('Safe Cracker session identity mismatch.');
+			}
+
+			serverSessionVerified = true;
+
 			console.log(
 				`Discord authenticated: ${user.displayName} (${user.id})`
 			);
@@ -231,8 +250,10 @@
 			<p class="range">Combination range: 0000–9999</p>
 		
 			
-			{#if discordDisplayName}
-				<p class="range">Authenticated as {discordDisplayName}</p>
+			{#if discordDisplayName && serverSessionVerified}
+				<p class="range">
+					Authenticated as {discordDisplayName} • Session verified
+				</p>
 			{:else if discordAuthError}
 				<p class="range">Discord auth failed</p>
 			{/if}

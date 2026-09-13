@@ -2,7 +2,14 @@ import { json } from '@sveltejs/kit';
 import { env as privateEnv } from '$env/dynamic/private';
 import { env as publicEnv } from '$env/dynamic/public';
 
-export async function POST({ request }) {
+import {
+	SESSION_COOKIE_NAME,
+	createSession,
+	upsertPlayer,
+	type DiscordUser
+} from '$lib/server/auth';
+
+export async function POST({ request, cookies }) {
 	const { code } = await request.json();
 
 	if (!code || typeof code !== 'string') {
@@ -24,23 +31,30 @@ export async function POST({ request }) {
 		);
 	}
 
-	const response = await fetch('https://discord.com/api/oauth2/token', {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/x-www-form-urlencoded'
-		},
-		body: new URLSearchParams({
-			client_id: clientId,
-			client_secret: clientSecret,
-			grant_type: 'authorization_code',
-			code
-		})
-	});
+	const tokenResponse = await fetch(
+		'https://discord.com/api/oauth2/token',
+		{
+			method: 'POST',
+			headers: {
+				'Content-Type':
+					'application/x-www-form-urlencoded'
+			},
+			body: new URLSearchParams({
+				client_id: clientId,
+				client_secret: clientSecret,
+				grant_type: 'authorization_code',
+				code
+			})
+		}
+	);
 
-	if (!response.ok) {
-		const error = await response.text();
+	if (!tokenResponse.ok) {
+		const error = await tokenResponse.text();
 
-		console.error('Discord token exchange failed:', error);
+		console.error(
+			'Discord token exchange failed:',
+			error
+		);
 
 		return json(
 			{ error: 'Discord token exchange failed' },
@@ -48,18 +62,64 @@ export async function POST({ request }) {
 		);
 	}
 
-	const data = await response.json();
+	const tokenData = await tokenResponse.json();
 
-	if (!data.access_token) {
-		console.error('Discord returned no access token.');
-
+	if (!tokenData.access_token) {
 		return json(
 			{ error: 'Discord returned no access token' },
 			{ status: 502 }
 		);
 	}
 
+	/*
+	 * Don't trust identity supplied by the browser.
+	 *
+	 * Ask Discord directly which user owns the
+	 * access token we just received.
+	 */
+	const userResponse = await fetch(
+		'https://discord.com/api/users/@me',
+		{
+			headers: {
+				Authorization: `Bearer ${tokenData.access_token}`
+			}
+		}
+	);
+
+	if (!userResponse.ok) {
+		const error = await userResponse.text();
+
+		console.error(
+			'Unable to retrieve Discord user:',
+			error
+		);
+
+		return json(
+			{ error: 'Unable to retrieve Discord user' },
+			{ status: 502 }
+		);
+	}
+
+	const discordUser =
+		(await userResponse.json()) as DiscordUser;
+
+	upsertPlayer(discordUser);
+
+	const session = createSession(discordUser.id);
+
+	cookies.set(
+		SESSION_COOKIE_NAME,
+		session.token,
+		{
+			path: '/',
+			httpOnly: true,
+			secure: true,
+			sameSite: 'none',
+			expires: new Date(session.expiresAt)
+		}
+	);
+
 	return json({
-		access_token: data.access_token
+		access_token: tokenData.access_token
 	});
 }
