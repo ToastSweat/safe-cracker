@@ -79,6 +79,11 @@ export function createSession(discordUserId: string) {
         now,
         expiresAt
     );
+
+    return {
+        token,
+        expiresAt
+    };
 }
 
 export function getSessionPlayer(sessionToken: string | undefined) {
