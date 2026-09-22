@@ -124,12 +124,28 @@
 
 			await loadStats();
 
+			if (safeNumber !== null) {
+				await setCompletedPresence(
+					safeNumber,
+					run.attempts,
+					run.elapsedMs,
+					currentStreak
+				);
+			}
+
 			return;
 		}
 
 		if (run.started) {
 			startedAt = Date.now() - run.elapsedMs;
 			startTimer();
+		}
+
+		if (safeNumber !== null) {
+			await setPlayingPresence(
+				safeNumber,
+				startedAt
+			);
 		}
 	}
 
@@ -254,7 +270,20 @@
 		* The server will reconcile the authoritative
 		* elapsed time when the response returns.
 		*/
+		const wasNotStarted = startedAt === null;
+
 		startTimer();
+
+		if (
+			wasNotStarted &&
+			safeNumber !== null &&
+			startedAt !== null
+		) {
+			void setPlayingPresence(
+				safeNumber,
+				startedAt
+			);
+		}
 
 		/*
 		* Clear immediately.

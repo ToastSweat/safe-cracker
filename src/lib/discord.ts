@@ -1,5 +1,7 @@
 import { env } from '$env/dynamic/public';
-import type { DiscordSDK } from '@discord/embedded-app-sdk';
+
+type DiscordSdk =
+	import('@discord/embedded-app-sdk').DiscordSDK;
 
 export type DiscordIdentity = {
 	id: string;
@@ -8,9 +10,9 @@ export type DiscordIdentity = {
 	avatar: string | null;
 };
 
-let discordSdk: DiscordSDK | null = null;
+let discordSdk: DiscordSdk | null = null;
 
-async function getDiscordSdk(): Promise<DiscordSDK> {
+async function getDiscordSdk(): Promise<DiscordSdk> {
 	if (discordSdk) {
 		return discordSdk;
 	}
@@ -26,11 +28,27 @@ async function getDiscordSdk(): Promise<DiscordSDK> {
 	const { DiscordSDK } =
 		await import('@discord/embedded-app-sdk');
 
-	discordSdk = new DiscordSDK(clientId);
+	const sdk = new DiscordSDK(clientId);
 
-	await discordSdk.ready();
+	await sdk.ready();
 
-	return discordSdk;
+	discordSdk = sdk;
+
+	return sdk;
+}
+
+function formatSafeNumber(safeNumber: number) {
+	return safeNumber.toString().padStart(3, '0');
+}
+
+function formatPresenceTime(milliseconds: number) {
+	const totalSeconds = Math.floor(milliseconds / 1000);
+	const minutes = Math.floor(totalSeconds / 60);
+	const seconds = totalSeconds % 60;
+
+	return `${minutes}:${seconds
+		.toString()
+		.padStart(2, '0')}`;
 }
 
 export async function authenticateDiscord(): Promise<DiscordIdentity> {
@@ -97,26 +115,38 @@ export async function setPlayingPresence(
 	safeNumber: number,
 	startedAt: number | null = null
 ) {
-	const sdk = await getDiscordSdk();
+	try {
+		const sdk = await getDiscordSdk();
 
-	await sdk.commands.setActivity({
-		activity: {
-			type: 0,
-			details: `Cracking Safe #${safeNumber
-				.toString()
-				.padStart(3, '0')}`,
-			state: 'Playing the daily safe',
-			...(startedAt !== null
-				? {
-						timestamps: {
-							start: Math.floor(
-								startedAt / 1000
-							)
+		await sdk.commands.setActivity({
+			activity: {
+				type: 0,
+				details:
+					`Cracking Safe #${formatSafeNumber(
+						safeNumber
+					)}`,
+				state: 'Playing the daily safe',
+				...(startedAt !== null
+					? {
+							timestamps: {
+								start: Math.floor(
+									startedAt / 1000
+								)
+							}
 						}
-					}
-				: {})
-		}
-	});
+					: {})
+			}
+		});
+	} catch (error) {
+		/*
+		 * Rich Presence is optional.
+		 * Never let it break authentication/gameplay.
+		 */
+		console.warn(
+			'Unable to set Discord playing presence:',
+			error
+		);
+	}
 }
 
 export async function setCompletedPresence(
@@ -125,31 +155,29 @@ export async function setCompletedPresence(
 	elapsedMs: number,
 	streak: number
 ) {
-	const sdk = await getDiscordSdk();
+	try {
+		const sdk = await getDiscordSdk();
 
-	const seconds =
-		Math.floor(elapsedMs / 1000);
+		const streakText =
+			`${streak} day${streak === 1 ? '' : 's'} streak`;
 
-	const minutes =
-		Math.floor(seconds / 60);
-
-	const remainder =
-		seconds % 60;
-
-	const time =
-		`${minutes}:${remainder
-			.toString()
-			.padStart(2, '0')}`;
-
-	await sdk.commands.setActivity({
-		activity: {
-			type: 0,
-			details: `Cracked Safe #${safeNumber
-				.toString()
-				.padStart(3, '0')}`,
-			state:
-				`${attempts} guesses • ${time}` +
-				` • ${streak} day streak`
-		}
-	});
+		await sdk.commands.setActivity({
+			activity: {
+				type: 0,
+				details:
+					`Cracked Safe #${formatSafeNumber(
+						safeNumber
+					)}`,
+				state:
+					`${attempts} guesses • ` +
+					`${formatPresenceTime(elapsedMs)} • ` +
+					streakText
+			}
+		});
+	} catch (error) {
+		console.warn(
+			'Unable to set Discord completed presence:',
+			error
+		);
+	}
 }
