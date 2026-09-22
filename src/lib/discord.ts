@@ -181,3 +181,42 @@ export async function setCompletedPresence(
 		);
 	}
 }
+
+export async function shareSafeResult(
+	safeNumber: number,
+	attempts: number,
+	elapsedMs: number,
+	streak: number,
+	rank: number | null
+) {
+	const sdk = await getDiscordSdk();
+
+	const minutes = Math.floor(elapsedMs / 60000);
+	const seconds = Math.floor((elapsedMs % 60000) / 1000);
+	const hundredths = Math.floor((elapsedMs % 1000) / 10);
+
+	const time =
+		`${minutes.toString().padStart(2, '0')}:` +
+		`${seconds.toString().padStart(2, '0')}.` +
+		`${hundredths.toString().padStart(2, '0')}`;
+
+	const streakText =
+		`${streak} day${streak === 1 ? '' : 's'} streak`;
+
+	const rankLine =
+		rank !== null
+			? `\n🏆 Rank #${rank}`
+			: '';
+
+	const { success } =
+		await sdk.commands.shareLink({
+			message:
+				`🔓 Safe Cracker #${formatSafeNumber(safeNumber)}\n` +
+				`${attempts} guesses • ${time}\n` +
+				`🔥 ${streakText}` +
+				rankLine,
+			custom_id: `safe-${formatSafeNumber(safeNumber)}`
+		});
+
+	return success;
+}

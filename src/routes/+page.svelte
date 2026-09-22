@@ -3,7 +3,8 @@
 	import {
 		authenticateDiscord,
 		setCompletedPresence,
-		setPlayingPresence
+		setPlayingPresence,
+		shareSafeResult
 	} from '$lib/discord';
 
 	let discordUserId = $state('');
@@ -48,6 +49,30 @@
 	let totalCompleted = $state(0);
 	let totalPlayersToday = $state(0);
 	
+	async function shareResult() {
+		if (
+			!cracked ||
+			safeNumber === null
+		) {
+			return;
+		}
+
+		try {
+			await shareSafeResult(
+				safeNumber,
+				attempts,
+				elapsed,
+				currentStreak,
+				currentPlayerRank?.rank ?? null
+			);
+		} catch (error) {
+			console.error(
+				'Unable to share Safe Cracker result:',
+				error
+			);
+		}
+	}
+
 	async function loadStats() {
 		const response = await fetch('/api/stats');
 
@@ -476,8 +501,8 @@
 		<div class:cracked class="safe-display">
 			<div class="screen">
 				{#if cracked}
-                    OPEN
-                {:else}
+					OPEN
+				{:else}
 					{guess.padEnd(4, '_')}
 				{/if}
 			</div>
@@ -542,6 +567,14 @@
 				<strong>{attempts} guesses</strong>
 				<span>{formatTime(elapsed)}</span>
 			</div>
+
+			<button
+				type="button"
+				class="share-result"
+				onclick={shareResult}
+			>
+				SHARE RESULT
+			</button>
 
 			<div class="postgame-stats">
 				<div class="streak-grid">
@@ -932,5 +965,21 @@
 		color: #555;
 		padding: 0.3rem;
 		border-bottom: 1px solid #252525;
+	}
+
+	.share-result {
+		width: 100%;
+		margin-top: 1rem;
+		padding: 0.9rem;
+		background: #222;
+		color: #eee;
+		border: 1px solid #555;
+		font-weight: bold;
+		letter-spacing: 0.12em;
+		cursor: pointer;
+	}
+
+	.share-result:hover {
+		background: #2b2b2b;
 	}
 </style>
