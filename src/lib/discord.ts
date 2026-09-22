@@ -214,7 +214,7 @@ export async function shareSafeResult(
 			message:
 				`# ${playerName} was playing Safe Cracker\n\n` +
 				rankLine +
-				`🔥 **${streak}** ${streak === 1 ? 'Day' : 'Days'} Streak\n` +
+				`🔥 **${streak}** Day Streak\n` +
 				`**${attempts}** Guesses • ${time}`,
 			custom_id: `safe-${formatSafeNumber(safeNumber)}`
 		});
