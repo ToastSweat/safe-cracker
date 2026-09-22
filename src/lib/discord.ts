@@ -183,6 +183,7 @@ export async function setCompletedPresence(
 }
 
 export async function shareSafeResult(
+	playerName: string,
 	safeNumber: number,
 	attempts: number,
 	elapsedMs: number,
@@ -201,20 +202,20 @@ export async function shareSafeResult(
 		`${hundredths.toString().padStart(2, '0')}`;
 
 	const streakText =
-		`${streak} day${streak === 1 ? '' : 's'} streak`;
+		`${streak} Day${streak === 1 ? '' : 's'} Streak`;
 
 	const rankLine =
 		rank !== null
-			? `\n🏆 Rank #${rank}`
+			? `🏆 Rank #**${rank}**\n`
 			: '';
 
 	const { success } =
 		await sdk.commands.shareLink({
 			message:
-				`🔓 Safe Cracker #${formatSafeNumber(safeNumber)}\n` +
-				`${attempts} guesses • ${time}\n` +
-				`🔥 ${streakText}` +
-				rankLine,
+				`# ${playerName} was playing Safe Cracker\n\n` +
+				rankLine +
+				`🔥 **${streak}** ${streak === 1 ? 'Day' : 'Days'} Streak\n` +
+				`**${attempts}** Guesses • ${time}`,
 			custom_id: `safe-${formatSafeNumber(safeNumber)}`
 		});
 

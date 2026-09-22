@@ -59,6 +59,7 @@
 
 		try {
 			await shareSafeResult(
+				discordDisplayName,
 				safeNumber,
 				attempts,
 				elapsed,
