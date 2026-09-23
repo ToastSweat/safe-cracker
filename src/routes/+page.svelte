@@ -1108,7 +1108,7 @@
 	.connecting-spinner {
 		position: absolute;
 
-		top: 43%;
+		top: 45%;
 		left: 50%;
 
 		width: clamp(115px, 13vw, 190px);
