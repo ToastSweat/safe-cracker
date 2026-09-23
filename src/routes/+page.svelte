@@ -49,6 +49,62 @@
 	let totalCompleted = $state(0);
 	let totalPlayersToday = $state(0);
 	
+	const connectingTips = [
+		'One safe every day. Make it count.',
+		'Fewest guesses wins. Fastest time breaks ties.',
+		'The combination is always between 0000 and 9999.',
+		'HIGHER means the combination is above your guess.',
+		'LOWER means the combination is below your guess.',
+		'You only get one completed run per safe.',
+		'Once your first guess is submitted, the clock is running.',
+		'Closing Safe Cracker does not stop an active timer.',
+		'Your run will still be waiting if you come back later.',
+		'There is no guess history. Remember your own bounds.',
+		'Keep narrowing the range. Panic is optional.',
+		'A good first guess can save a lot of work.',
+		'Halfway is usually a pretty good place to start.',
+		'Fewer guesses matter more than a faster time.',
+		'Accuracy first. Speed breaks the tie.',
+		'Today’s safe is the same for everyone.',
+		'Every player gets the same combination each day.',
+		'Your streak survives until you actually miss a day.',
+		'Crack today’s safe to keep your streak alive.',
+		'The leaderboard resets with each new daily safe.',
+		'You can share your result after cracking the safe.',
+		'Your Discord profile can show what safe you are cracking.',
+		'Try not to forget whether 4200 was too high.',
+		'The safe remembers. Even when you do not.',
+		'Guess responsibly.',
+		'Good guesses open doors.',
+		'Bad guesses also open doors. Eventually.',
+		'The safe is not judging you. The leaderboard is.',
+		'Somewhere, somebody is already doing better than you.',
+		'Rank #1 is just last place with fewer witnesses.',
+		'There are no loot boxes inside the safe.',
+		'The safe contains absolutely no Tactical Safe Pants.',
+		'This loading tip is technically gameplay advice.',
+		'Hi Mom!',
+		'Hi Soul!',
+		'Hi Bryce!',
+		'Hi Steven!',
+		'Have you tried guessing the correct number?',
+		'The combination is probably not 0000. Probably.',
+		'Remembering numbers builds character. Allegedly.',
+		'Safe Cracker does not endorse hitting the safe with a hammer.',
+		'The lock is digital. Threatening it will not help.',
+		'Please do not lick the keypad.',
+		'Management denies rumors that Safe #666 is haunted.',
+		'The combination has never been "password."',
+		'No safes were harmed in the making of this Activity.',
+		'Cosmic Raven Games accepts no responsibility for damaged egos.',
+		'Every wrong guess still tells you something.',
+		'Discipline opens everything.',
+		'Same minds. Bigger wins.',
+		'Crack today. Claim tomorrow.'
+	];
+
+	let connectingTip = $state(connectingTips[0]);
+
 	async function shareResult() {
 		if (
 			!cracked ||
@@ -436,6 +492,11 @@
 	}
 
 	onMount(() => {
+		connectingTip =
+			connectingTips[
+				Math.floor(Math.random() * connectingTips.length)
+			];
+
 		void initializeApp();
 	});
 
@@ -450,6 +511,15 @@
 
 <svelte:head>
 	<title>Safe Cracker</title>
+
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+
+	<link
+		href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500&display=swap"
+		rel="stylesheet"
+	/>
+
 	<meta
 		name="description"
 		content="Crack the daily safe using as few guesses as possible."
@@ -459,11 +529,31 @@
 
 <main>
 	{#if initializing}
-		<section class="loading-screen">
-			<p class="eyebrow">SAFE CRACKER</p>
-			<h1>CONNECTING...</h1>
-			<p class="range">
-				Syncing today's safe.
+		<section class="connecting-screen">
+			<img
+				class="connecting-logo"
+				src="/images/connecting/Connecting_Logo.png"
+				alt="Safe Cracker"
+			/>
+
+			<img
+				class="connecting-spinner"
+				src="/images/connecting/Connecting_Spinner.png"
+				alt=""
+			/>
+
+			<img
+				class="connecting-title"
+				src="/images/connecting/Connecting_Connecting_Text.png"
+				alt="Connecting..."
+			/>
+
+			<p class="connecting-tip">
+				{connectingTip}
+			</p>
+
+			<p class="connecting-copyright">
+				©2026 COSMIC RAVEN GAMES. ALL RIGHTS RESERVED.
 			</p>
 		</section>
 
@@ -982,5 +1072,117 @@
 
 	.share-result:hover {
 		background: #2b2b2b;
+	}
+
+	.connecting-screen {
+		position: fixed;
+		inset: 0;
+		overflow: hidden;
+
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+
+		background:
+			url('/images/connecting/Connecting_Background_1.png')
+			center center / cover no-repeat;
+
+		color: white;
+	}
+
+	.connecting-logo {
+		position: absolute;
+
+		top: 3.5%;
+		left: 50%;
+
+		width: clamp(320px, 39vw, 610px);
+		height: auto;
+
+		transform: translateX(-50%);
+
+		user-select: none;
+		pointer-events: none;
+	}
+
+	.connecting-spinner {
+		position: absolute;
+
+		top: 35%;
+		left: 50%;
+
+		width: clamp(115px, 13vw, 190px);
+		height: auto;
+
+		transform: translate(-50%, -50%);
+
+		animation: connecting-spin 1.4s linear infinite;
+
+		user-select: none;
+		pointer-events: none;
+	}
+
+	.connecting-title {
+		position: absolute;
+
+		top: 52%;
+		left: 50%;
+
+		width: clamp(390px, 51vw, 800px);
+		height: auto;
+
+		transform: translateX(-50%);
+
+		user-select: none;
+		pointer-events: none;
+	}
+
+	.connecting-tip {
+		position: absolute;
+
+		left: 10.5%;
+		right: 10.5%;
+		bottom: 10.5%;
+
+		margin: 0;
+
+		color: #fff;
+
+		font-family: 'Orbitron', sans-serif;
+		font-size: clamp(1.25rem, 1.75vw, 1.85rem);
+		font-weight: 500;
+		line-height: 36px;
+		letter-spacing: 0;
+
+		text-align: left;
+	}
+
+	.connecting-copyright {
+		position: absolute;
+
+		right: 1%;
+		bottom: 0.8%;
+
+		margin: 0;
+
+		color: rgba(50, 60, 180, 0.7);
+
+		font-family: 'Orbitron', sans-serif;
+		font-weight: 500;
+		font-size: clamp(0.75rem, 1.35vw, 1.15rem);
+		letter-spacing: 0;
+		opacity: 0.55;
+
+		white-space: nowrap;
+	}
+
+	@keyframes connecting-spin {
+		from {
+			transform: translate(-50%, -50%) rotate(0deg);
+		}
+
+		to {
+			transform: translate(-50%, -50%) rotate(360deg);
+		}
 	}
 </style>
