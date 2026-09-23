@@ -759,6 +759,14 @@
 </main>
 
 <style>
+	@font-face {
+		font-family: 'Orbitron';
+		src: url('/fonts/Orbitron-Medium.ttf') format('truetype');
+		font-weight: 500;
+		font-style: normal;
+		font-display: swap;
+	}
+
 	:global(*) {
 		box-sizing: border-box;
 	}
@@ -1117,7 +1125,7 @@
 	.connecting-title {
 		position: absolute;
 
-		top: 52%;
+		top: 50%;
 		left: 50%;
 
 		width: clamp(390px, 51vw, 800px);
@@ -1134,20 +1142,17 @@
 
 		left: 10.5%;
 		right: 10.5%;
-		bottom: 10.5%;
+		bottom: 12%;
 
 		margin: 0;
 
 		color: #fff;
 
 		font-family: 'Orbitron', sans-serif;
-		src: url('/fonts/Orbitron-Regular.ttf') format('truetype');
 		font-size: clamp(1.25rem, 1.75vw, 1.85rem);
 		font-weight: 500;
 		line-height: 36px;
 		letter-spacing: 0;
-		font-style: normal;
-		font-display: swap;
 
 		text-align: center;
 	}
