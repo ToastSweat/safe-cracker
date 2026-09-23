@@ -512,14 +512,6 @@
 <svelte:head>
 	<title>Safe Cracker</title>
 
-	<link rel="preconnect" href="https://fonts.googleapis.com" />
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
-
-	<link
-		href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500&display=swap"
-		rel="stylesheet"
-	/>
-
 	<meta
 		name="description"
 		content="Crack the daily safe using as few guesses as possible."
@@ -1108,7 +1100,7 @@
 	.connecting-spinner {
 		position: absolute;
 
-		top: 35%;
+		top: 39%;
 		left: 50%;
 
 		width: clamp(115px, 13vw, 190px);
@@ -1149,12 +1141,15 @@
 		color: #fff;
 
 		font-family: 'Orbitron', sans-serif;
+		src: url('/fonts/Orbitron-Regular.ttf') format('truetype');
 		font-size: clamp(1.25rem, 1.75vw, 1.85rem);
 		font-weight: 500;
 		line-height: 36px;
 		letter-spacing: 0;
+		font-style: normal;
+		font-display: swap;
 
-		text-align: left;
+		text-align: center;
 	}
 
 	.connecting-copyright {
@@ -1165,13 +1160,12 @@
 
 		margin: 0;
 
-		color: rgba(50, 60, 180, 0.7);
+		color: rgba(90, 105, 235, 0.9);
 
 		font-family: 'Orbitron', sans-serif;
 		font-weight: 500;
 		font-size: clamp(0.75rem, 1.35vw, 1.15rem);
 		letter-spacing: 0;
-		opacity: 0.55;
 
 		white-space: nowrap;
 	}
