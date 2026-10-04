@@ -33,6 +33,7 @@
 		"vite": "^8.0.16"
 	},
 	"dependencies": {
-		"@discord/embedded-app-sdk": "^2.5.0"
+		"@discord/embedded-app-sdk": "^2.5.0",
+		"better-sqlite3-multiple-ciphers": "^12.11.1"
 	}
 }

@@ -1,4 +1,6 @@
-import { DatabaseSync } from 'node:sqlite';
+import Database from 'better-sqlite3-multiple-ciphers';
+
+import { getDatabaseKey } from './db-key';
 import { existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -11,9 +13,16 @@ if (!existsSync(dataDirectory)) {
 const databasePath = join(dataDirectory, 'safe-cracker.db');
 
 function createDatabase() {
-	const database = new DatabaseSync(databasePath, {
+    const key = getDatabaseKey();
+
+	const database = new Database(databasePath, {
 		timeout: 5000
 	});
+
+	database.pragma("cipher = 'chacha20'");
+	database.key(key);
+
+    // Keep your existing database.exec(...) schema below.
 
 	database.exec(`
 		PRAGMA foreign_keys = ON;
@@ -71,7 +80,7 @@ function createDatabase() {
 }
 
 const globalDatabase = globalThis as typeof globalThis & {
-	safeCrackerDatabase?: DatabaseSync;
+	safeCrackerDatabase?: ReturnType<typeof createDatabase>;
 };
 
 export const db =
